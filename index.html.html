@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Local QR Code Generator</title>
+<style>
+    body {
+        font-family: sans-serif;
+        height: 100vh;               /* full viewport height */
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start; /* inputs stay at top */
+        align-items: center;
+        padding-top: 20px;
+    }
+
+    .qr-wrapper {
+        flex: 1;                     /* take remaining space */
+        width: 100%;
+        display: flex;
+        justify-content: center;     /* center horizontally */
+        align-items: center;         /* center vertically   */
+        margin-top: 20px;
+    }
+
+    #qrcode {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 300px;
+        min-width: 300px;
+    }
+
+    input, button {
+        font-size: 1.2em;
+        padding: 10px;
+        width: 90%;
+        margin-top: 10px;
+    }
+</style>
+</head>
+<body>
+
+<h2>QR Code Generator (Local Only)</h2>
+
+<input id="text" type="text" placeholder="Enter text..." />
+<button onclick="makeQR()">Generate QR Code</button>
+
+<div class="qr-wrapper">
+    <div id="qrcode"></div>
+</div>
+
+<!-- Local, non-minified QRCode.js -->
+<script src="qrcode.js"></script>
+
+<script>
+function makeQR() {
+    const text = document.getElementById("text").value.trim();
+    const qrContainer = document.getElementById("qrcode");
+
+    // Clear previous QR code
+    qrContainer.innerHTML = "";
+
+    if (!text) return;
+
+    new QRCode(qrContainer, {
+        text: text,
+        width: 300,
+        height: 300,
+        correctLevel: QRCode.CorrectLevel.H
+    });
+}
+</script>
+
+</body>
+</html>
