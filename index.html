@@ -2,84 +2,500 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Local QR Code Generator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Generate QR codes entirely in your browser. Nothing is uploaded.">
+<meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#16181d" media="(prefers-color-scheme: dark)">
+<title>QR Code Generator</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 7' shape-rendering='crispEdges'%3E%3Crect width='7' height='7' fill='%23fff'/%3E%3Cpath d='M0 0h3v3H0zM4 0h3v3H4zM0 4h3v3H0zM4 4h1v1H4zM6 4h1v1H6zM5 5h1v1H5zM4 6h1v1H4zM6 6h1v1H6z'/%3E%3C/svg%3E">
 <style>
+    :root {
+        --bg: #f4f5f7;
+        --surface: #ffffff;
+        --text: #1b1d22;
+        --muted: #5d6370;
+        --border: #d5d8de;
+        --accent: #1f5fd1;
+        --accent-text: #ffffff;
+        --danger: #b3261e;
+        --warn: #8a5a00;
+        --radius: 12px;
+        color-scheme: light dark;
+    }
+
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --bg: #16181d;
+            --surface: #20232a;
+            --text: #e8eaee;
+            --muted: #a1a7b3;
+            --border: #3a3f4a;
+            --accent: #6d9eff;
+            --accent-text: #0d1424;
+            --danger: #ff8a80;
+            --warn: #f0c060;
+        }
+    }
+
+    *, *::before, *::after {
+        box-sizing: border-box;
+    }
+
     body {
-        font-family: sans-serif;
-        height: 100vh;
         margin: 0;
+        min-height: 100dvh;
+        background: var(--bg);
+        color: var(--text);
+        font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+
+    main {
+        width: 100%;
+        max-width: 560px;
+        margin: 0 auto;
+        padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+                 max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
         display: flex;
         flex-direction: column;
-        justify-content: flex-start;
-        align-items: center;
-        padding-top: 20px;
+        gap: 16px;
     }
 
-    .qr-wrapper {
-        flex: 1;
+    h1 {
+        margin: 8px 0 0;
+        font-size: clamp(1.4rem, 5vw, 1.9rem);
+        line-height: 1.2;
+    }
+
+    .subtitle {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 0.95rem;
+    }
+
+    .field label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 6px;
+    }
+
+    textarea, select, button {
+        font: inherit;
+        color: inherit;
+    }
+
+    textarea {
+        display: block;
         width: 100%;
-        display: flex;
-        justify-content: center;     /* center horizontally */
-        align-items: center;         /* center vertically   */
-        margin-top: 20px;
+        min-height: 6.5em;
+        resize: vertical;
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface);
+        /* 16px minimum keeps iOS Safari from zooming on focus */
+        font-size: 16px;
+        overflow-wrap: anywhere;
     }
 
-    #qrcode {
+    textarea:focus-visible, select:focus-visible, button:focus-visible {
+        outline: 3px solid var(--accent);
+        outline-offset: 2px;
+    }
+
+    .options {
         display: flex;
-        justify-content: center;
+        flex-wrap: wrap;
         align-items: center;
-        min-height: 300px;
-        min-width: 300px;
+        justify-content: space-between;
+        gap: 8px 16px;
+        margin-top: 10px;
     }
 
-    input, button {
-        font-size: 1.2em;
-        padding: 10px;
-        width: 90%;
-        margin-top: 10px;
+    .options label {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.95rem;
+    }
+
+    select {
+        min-height: 44px;
+        padding: 6px 10px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface);
+    }
+
+    #counter {
+        font-size: 0.9rem;
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+    }
+
+    #counter.warn {
+        color: var(--warn);
+    }
+
+    #counter.over {
+        color: var(--danger);
+        font-weight: 600;
+    }
+
+    .output {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+    }
+
+    #stage {
+        width: 100%;
+        min-height: 200px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* The code keeps a white background in dark mode; many scanners
+       cannot read light-on-dark codes. */
+    #qr {
+        display: block;
+        max-width: 100%;
+        background: #ffffff;
+        border-radius: 4px;
+        image-rendering: pixelated;
+    }
+
+    #placeholder {
+        margin: 0;
+        color: var(--muted);
+        text-align: center;
+    }
+
+    #message {
+        margin: 0;
+        color: var(--danger);
+        text-align: center;
+    }
+
+    #message:empty, #info:empty {
+        display: none;
+    }
+
+    #info {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.85rem;
+        text-align: center;
+    }
+
+    .actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+        width: 100%;
+    }
+
+    .actions button {
+        flex: 1 1 140px;
+        min-height: 44px;
+        padding: 8px 14px;
+        border: 1px solid var(--accent);
+        border-radius: 8px;
+        background: transparent;
+        color: var(--accent);
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .actions button.primary {
+        background: var(--accent);
+        color: var(--accent-text);
+    }
+
+    .actions button:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+    }
+
+    [hidden] {
+        display: none !important;
     }
 </style>
 </head>
 <body>
 
-<h2>QR Code Generator (Local Only)</h2>
+<main>
+    <header>
+        <h1>QR Code Generator</h1>
+        <p class="subtitle">Runs entirely in your browser. Nothing you type is uploaded.</p>
+    </header>
 
-<input id="text" type="text" placeholder="Enter text..." />
-<button onclick="makeQR()">Generate QR Code</button>
+    <form id="form" class="field" autocomplete="off">
+        <label for="text">Text or URL</label>
+        <textarea id="text" rows="4" placeholder="https://example.com" spellcheck="false" autofocus></textarea>
 
-<div class="qr-wrapper">
-    <div id="qrcode"></div>
-</div>
+        <div class="options">
+            <label>
+                Error correction
+                <select id="level">
+                    <option value="L">Low (7%)</option>
+                    <option value="M" selected>Medium (15%)</option>
+                    <option value="Q">Quartile (25%)</option>
+                    <option value="H">High (30%)</option>
+                </select>
+            </label>
+            <span id="counter" aria-live="polite"></span>
+        </div>
+    </form>
 
-<!-- Local, non-minified QRCode.js -->
+    <section class="output" aria-label="Generated QR code">
+        <div id="stage">
+            <p id="placeholder">Your QR code will appear here as you type.</p>
+            <canvas id="qr" role="img" hidden></canvas>
+        </div>
+        <p id="message" role="alert"></p>
+        <p id="info"></p>
+        <div class="actions">
+            <button type="button" id="download-png" class="primary" disabled>Download PNG</button>
+            <button type="button" id="download-svg" disabled>Download SVG</button>
+            <button type="button" id="copy" disabled hidden>Copy image</button>
+        </div>
+    </section>
+</main>
+
+<!-- Local copy of qrcode-generator 2.0.4 by Kazuhiko Arase (MIT) -->
 <script src="qrcode.js"></script>
 
 <script>
-function makeQR() {
-    const text = document.getElementById("text").value.trim();
-    const qrContainer = document.getElementById("qrcode");
+// Encode text as UTF-8 (the library default only keeps the low byte of each character).
+qrcode.stringToBytes = qrcode.stringToBytesFuncs["UTF-8"];
 
-    qrContainer.innerHTML = "";
+// Width of the white border around the code, in modules. The spec requires 4.
+const QUIET_ZONE = 4;
+const MAX_DISPLAY_SIZE = 480;
+const EXPORT_TARGET_SIZE = 1024;
 
-    if (!text) return;
+// Maximum characters (Numeric, Alphanumeric) or bytes (Byte) at version 40.
+const CAPACITY = {
+    Numeric:      { L: 7089, M: 5596, Q: 3993, H: 3057 },
+    Alphanumeric: { L: 4296, M: 3391, Q: 2420, H: 1852 },
+    Byte:         { L: 2953, M: 2331, Q: 1663, H: 1273 }
+};
 
-    new QRCode(qrContainer, {
-        text: text,
-        width: 300,
-        height: 300,
-        correctLevel: QRCode.CorrectLevel.H
+const textEl = document.getElementById("text");
+const levelEl = document.getElementById("level");
+const counterEl = document.getElementById("counter");
+const stageEl = document.getElementById("stage");
+const canvasEl = document.getElementById("qr");
+const placeholderEl = document.getElementById("placeholder");
+const messageEl = document.getElementById("message");
+const infoEl = document.getElementById("info");
+const pngButton = document.getElementById("download-png");
+const svgButton = document.getElementById("download-svg");
+const copyButton = document.getElementById("copy");
+
+let currentQR = null;
+
+// Numeric and Alphanumeric modes pack more data per module than Byte mode.
+function pickMode(text) {
+    if (/^[0-9]+$/.test(text)) return "Numeric";
+    if (/^[0-9A-Z $%*+\-./:]+$/.test(text)) return "Alphanumeric";
+    return "Byte";
+}
+
+function dataLength(text, mode) {
+    return mode === "Byte" ? qrcode.stringToBytes(text).length : text.length;
+}
+
+function updateCounter(length, mode, level) {
+    if (!length) {
+        counterEl.textContent = "";
+        counterEl.className = "";
+        return;
+    }
+    const max = CAPACITY[mode][level];
+    const unit = mode === "Byte" ? "bytes" : "characters";
+    counterEl.textContent = length.toLocaleString() + " / " + max.toLocaleString() + " " + unit;
+    counterEl.className = length > max ? "over" : length > max * 0.9 ? "warn" : "";
+}
+
+function drawQR(ctx, qr, cellSize) {
+    const count = qr.getModuleCount();
+    const size = (count + QUIET_ZONE * 2) * cellSize;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, size, size);
+    ctx.fillStyle = "#000000";
+    for (let row = 0; row < count; row++) {
+        for (let col = 0; col < count; col++) {
+            if (qr.isDark(row, col)) {
+                ctx.fillRect((col + QUIET_ZONE) * cellSize, (row + QUIET_ZONE) * cellSize, cellSize, cellSize);
+            }
+        }
+    }
+}
+
+// Every module is a whole number of device pixels, so the code stays sharp at any size.
+// Very dense codes on narrow, low-density screens would end up tiny that way, so below
+// 3 device pixels per module the canvas is stretched to the available width instead.
+function renderToScreen() {
+    if (!currentQR) return;
+    const totalModules = currentQR.getModuleCount() + QUIET_ZONE * 2;
+    const dpr = window.devicePixelRatio || 1;
+    const availableCss = Math.min(stageEl.clientWidth, MAX_DISPLAY_SIZE);
+    const cellSize = Math.max(1, Math.floor(availableCss * dpr / totalModules));
+    const size = totalModules * cellSize;
+    const displaySize = cellSize < 3 ? availableCss : size / dpr;
+
+    canvasEl.width = size;
+    canvasEl.height = size;
+    canvasEl.style.width = displaySize + "px";
+    canvasEl.style.height = displaySize + "px";
+    drawQR(canvasEl.getContext("2d"), currentQR, cellSize);
+}
+
+function setOutput(qr, text, level) {
+    currentQR = qr;
+    const hasCode = qr !== null;
+
+    canvasEl.hidden = !hasCode;
+    placeholderEl.hidden = hasCode || messageEl.textContent !== "";
+    pngButton.disabled = svgButton.disabled = copyButton.disabled = !hasCode;
+
+    if (hasCode) {
+        const count = qr.getModuleCount();
+        const version = (count - 17) / 4;
+        infoEl.textContent = "Version " + version + " · " + count + "×" + count + " modules · Level " + level;
+        canvasEl.setAttribute("aria-label", "QR code for: " + (text.length > 120 ? text.slice(0, 120) + "…" : text));
+        renderToScreen();
+    } else {
+        infoEl.textContent = "";
+        canvasEl.removeAttribute("aria-label");
+    }
+}
+
+function generate() {
+    const text = textEl.value.trim();
+    const level = levelEl.value;
+    messageEl.textContent = "";
+
+    if (!text) {
+        updateCounter(0);
+        setOutput(null);
+        return;
+    }
+
+    const mode = pickMode(text);
+    const length = dataLength(text, mode);
+    updateCounter(length, mode, level);
+
+    if (length > CAPACITY[mode][level]) {
+        messageEl.textContent = level === "L"
+            ? "This text is too long for a QR code."
+            : "This text is too long for this error correction level. Try a lower level.";
+        setOutput(null);
+        return;
+    }
+
+    try {
+        const qr = qrcode(0, level);
+        qr.addData(text, mode);
+        qr.make();
+        setOutput(qr, text, level);
+    } catch (err) {
+        // The library throws plain strings, not Error objects.
+        messageEl.textContent = "Could not generate the QR code: " + (err && err.message ? err.message : err);
+        setOutput(null);
+    }
+}
+
+let generateTimer = 0;
+function scheduleGenerate() {
+    clearTimeout(generateTimer);
+    generateTimer = setTimeout(generate, 150);
+}
+
+function exportCanvas() {
+    const totalModules = currentQR.getModuleCount() + QUIET_ZONE * 2;
+    const cellSize = Math.max(4, Math.ceil(EXPORT_TARGET_SIZE / totalModules));
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = totalModules * cellSize;
+    drawQR(canvas.getContext("2d"), currentQR, cellSize);
+    return canvas;
+}
+
+function exportPngBlob() {
+    return new Promise(function (resolve, reject) {
+        exportCanvas().toBlob(function (blob) {
+            blob ? resolve(blob) : reject(new Error("PNG export failed"));
+        }, "image/png");
     });
 }
 
-// Enable Enter key
-document.getElementById("text").addEventListener("keypress", function(event) {
-    if (event.key === "Enter") {
-//        event.preventDefault();
-        makeQR();
-    }
+function saveBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+}
+
+function flashLabel(button, label) {
+    const original = button.dataset.label || button.textContent;
+    button.dataset.label = original;
+    button.textContent = label;
+    setTimeout(function () { button.textContent = original; }, 1500);
+}
+
+pngButton.addEventListener("click", function () {
+    if (!currentQR) return;
+    exportPngBlob().then(function (blob) {
+        saveBlob(blob, "qr-code.png");
+    }).catch(function () {
+        messageEl.textContent = "Could not create the PNG file.";
+    });
 });
+
+svgButton.addEventListener("click", function () {
+    if (!currentQR) return;
+    const svg = currentQR.createSvgTag({ cellSize: 8, margin: QUIET_ZONE * 8 });
+    saveBlob(new Blob([svg], { type: "image/svg+xml" }), "qr-code.svg");
+});
+
+// Copying images needs the async Clipboard API (secure context) and ClipboardItem.
+if (window.isSecureContext && navigator.clipboard && navigator.clipboard.write && window.ClipboardItem) {
+    copyButton.hidden = false;
+    copyButton.addEventListener("click", function () {
+        if (!currentQR) return;
+        // Passing the promise directly keeps Safari's user-gesture requirement satisfied.
+        navigator.clipboard.write([new ClipboardItem({ "image/png": exportPngBlob() })])
+            .then(function () { flashLabel(copyButton, "Copied!"); })
+            .catch(function () { flashLabel(copyButton, "Copy failed"); });
+    });
+}
+
+document.getElementById("form").addEventListener("submit", function (event) {
+    event.preventDefault();
+    generate();
+});
+
+textEl.addEventListener("input", scheduleGenerate);
+levelEl.addEventListener("change", generate);
+
+// Re-fit the code when the layout width or pixel density changes (rotation, zoom).
+new ResizeObserver(renderToScreen).observe(stageEl);
+
+// Browsers may restore the textarea contents on reload.
+generate();
 </script>
 
 </body>
 </html>
-
